@@ -70,7 +70,7 @@ export default function ProductsPage() {
 
     // Template Item Modal States
     const [showTemplateItemModal, setShowTemplateItemModal] = useState(false);
-    const [templateItemForm, setTemplateItemForm] = useState<{ product_id?: number; default_par_level: number }>({ default_par_level: 0 });
+    const [templateItemForm, setTemplateItemForm] = useState<{ product_id?: number; default_par_level: number }>({ default_par_level: 1 });
 
     const supabase = createClient();
 
@@ -308,6 +308,13 @@ export default function ProductsPage() {
     const handleAddTemplateItem = async () => {
         if (!selectedTemplate || !templateItemForm.product_id) return;
 
+        // Validate par level is greater than 0
+        const parLevel = Number(templateItemForm.default_par_level);
+        if (!parLevel || parLevel <= 0) {
+            alert('Error: Default Par Level must be greater than 0.');
+            return;
+        }
+
         // Ensure template_id is a valid number
         const templateId = Number(selectedTemplate.id);
         if (!templateId || isNaN(templateId)) {
@@ -327,17 +334,37 @@ export default function ProductsPage() {
             return;
         }
 
+        // Check if item already exists in template
+        const productId = Number(templateItemForm.product_id);
+        const { data: existingItem } = await supabase
+            .from('template_items')
+            .select('id, product:products(name)')
+            .eq('template_id', templateId)
+            .eq('product_id', productId)
+            .single();
+
+        if (existingItem) {
+            const productName = (existingItem.product as any)?.name || 'this product';
+            alert(`Error: ${productName} already exists in this template.`);
+            return;
+        }
+
         const { error } = await supabase.from('template_items').insert({
             template_id: templateId,
-            product_id: Number(templateItemForm.product_id),
-            default_par_level: Number(templateItemForm.default_par_level) || 0
+            product_id: productId,
+            default_par_level: parLevel
         });
 
         if (error) {
-            alert('Error adding item: ' + error.message);
+            // Check if it's a unique constraint violation (duplicate)
+            if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
+                alert('Error: This item already exists in the template.');
+            } else {
+                alert('Error adding item: ' + error.message);
+            }
         } else {
             setShowTemplateItemModal(false);
-            setTemplateItemForm({ default_par_level: 0 });
+            setTemplateItemForm({ default_par_level: 1 });
             fetchTemplateItems(templateId);
         }
     };
@@ -412,9 +439,11 @@ export default function ProductsPage() {
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">
-                            {activeTab === 'products' ? 'Products' : 'Product Categories'}
+                            {activeTab === 'products' ? 'Products' : activeTab === 'categories' ? 'Product Categories' : 'Templates'}
                         </h1>
-                        <p className="text-slate-500">Manage groceries, catering items, and categories.</p>
+                        <p className="text-slate-500">
+                            {activeTab === 'products' ? 'Manage groceries, catering items, and categories.' : activeTab === 'categories' ? 'Manage groceries, catering items, and categories.' : 'Manage stock templates for proactive restocking.'}
+                        </p>
                     </div>
                     <div className="flex gap-3">
                         {activeTab === 'products' ? (
@@ -425,13 +454,21 @@ export default function ProductsPage() {
                                 <Plus className="h-4 w-4" />
                                 Add Product
                             </button>
-                        ) : (
+                        ) : activeTab === 'categories' ? (
                             <button
                                 onClick={() => setShowCategoryModal(true)}
                                 className="flex items-center gap-2 rounded-lg bg-white border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
                             >
                                 <FolderPlus className="h-4 w-4" />
                                 Add Category
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => { setTemplateForm({}); setShowTemplateModal(true); }}
+                                className="flex items-center gap-2 rounded-lg bg-white border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+                            >
+                                <FileText className="h-4 w-4" />
+                                Add Template
                             </button>
                         )}
                     </div>
@@ -969,7 +1006,7 @@ export default function ProductsPage() {
                             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                                 <h3 className="font-semibold text-slate-700">Template Items</h3>
                                 <button
-                                    onClick={() => { setTemplateItemForm({ default_par_level: 0 }); setShowTemplateItemModal(true); }}
+                                    onClick={() => { setTemplateItemForm({ default_par_level: 1 }); setShowTemplateItemModal(true); }}
                                     className="text-sm bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-100 font-medium transition-colors"
                                 >
                                     + Add Product
@@ -992,8 +1029,8 @@ export default function ProductsPage() {
                                             </td>
                                         </tr>
                                     ) : (
-                                        templateItems.map(item => (
-                                            <tr key={item.id} className="hover:bg-slate-50">
+                                        templateItems.map((item, index) => (
+                                            <tr key={item.id ?? `template-item-${item.template_id}-${item.product_id}-${index}`} className="hover:bg-slate-50">
                                                 <td className="px-6 py-3 font-medium text-slate-800">{item.product?.name}</td>
                                                 <td className="px-6 py-3 text-slate-500">{item.product?.category}</td>
                                                 <td className="px-6 py-3">
@@ -1097,8 +1134,12 @@ export default function ProductsPage() {
                                     <label className="block text-sm font-medium text-slate-700 mb-1">Default Par Level</label>
                                     <input
                                         type="number"
+                                        min="1"
                                         value={templateItemForm.default_par_level}
-                                        onChange={e => setTemplateItemForm({ ...templateItemForm, default_par_level: parseInt(e.target.value) || 0 })}
+                                        onChange={e => {
+                                            const val = parseInt(e.target.value) || 1;
+                                            setTemplateItemForm({ ...templateItemForm, default_par_level: val < 1 ? 1 : val });
+                                        }}
                                         className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
                                     />
                                 </div>

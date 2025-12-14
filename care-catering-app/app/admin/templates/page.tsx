@@ -26,7 +26,7 @@ export default function TemplatesPage() {
 
     // Add Item State
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
-    const [itemForm, setItemForm] = useState<{ product_id?: number; default_par_level: number }>({ default_par_level: 0 });
+    const [itemForm, setItemForm] = useState<{ product_id?: number; default_par_level: number }>({ default_par_level: 1 });
 
     useEffect(() => {
         fetchTemplates();
@@ -93,6 +93,13 @@ export default function TemplatesPage() {
     const handleAddItem = async () => {
         if (!selectedTemplate || !itemForm.product_id) return;
 
+        // Validate par level is greater than 0
+        const parLevel = Number(itemForm.default_par_level);
+        if (!parLevel || parLevel <= 0) {
+            alert('Error: Default Par Level must be greater than 0.');
+            return;
+        }
+
         // Ensure template_id is a valid number
         const templateId = Number(selectedTemplate.id);
         if (!templateId || isNaN(templateId)) {
@@ -114,17 +121,37 @@ export default function TemplatesPage() {
             return;
         }
 
+        // Check if item already exists in template
+        const productId = Number(itemForm.product_id);
+        const { data: existingItem } = await supabase
+            .from('template_items')
+            .select('id, product:products(name)')
+            .eq('template_id', templateId)
+            .eq('product_id', productId)
+            .single();
+
+        if (existingItem) {
+            const productName = (existingItem.product as any)?.name || 'this product';
+            alert(`Error: ${productName} already exists in this template.`);
+            return;
+        }
+
         const { error } = await supabase.from('template_items').insert({
             template_id: templateId,
-            product_id: Number(itemForm.product_id),
-            default_par_level: Number(itemForm.default_par_level) || 0
+            product_id: productId,
+            default_par_level: parLevel
         });
 
         if (error) {
-            alert(`Error adding item: ${error.message}`);
+            // Check if it's a unique constraint violation (duplicate)
+            if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
+                alert('Error: This item already exists in the template.');
+            } else {
+                alert(`Error adding item: ${error.message}`);
+            }
         } else {
             setIsItemModalOpen(false);
-            setItemForm({ default_par_level: 0 }); // Reset form
+            setItemForm({ default_par_level: 1 }); // Reset form with minimum value
             fetchTemplateItems(templateId);
         }
     };
@@ -207,7 +234,7 @@ export default function TemplatesPage() {
                     <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                         <h3 className="font-semibold text-slate-700">Template Items</h3>
                         <button
-                            onClick={() => { setItemForm({ default_par_level: 0 }); setIsItemModalOpen(true); }}
+                            onClick={() => { setItemForm({ default_par_level: 1 }); setIsItemModalOpen(true); }}
                             className="text-sm bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg hover:bg-emerald-100 font-medium transition-colors"
                         >
                             + Add Product
@@ -334,8 +361,12 @@ export default function TemplatesPage() {
                                 <label className="block text-sm font-medium text-slate-700 mb-1">Default Par Level</label>
                                 <input
                                     type="number"
+                                    min="1"
                                     value={itemForm.default_par_level}
-                                    onChange={e => setItemForm({ ...itemForm, default_par_level: parseInt(e.target.value) || 0 })}
+                                    onChange={e => {
+                                        const val = parseInt(e.target.value) || 1;
+                                        setItemForm({ ...itemForm, default_par_level: val < 1 ? 1 : val });
+                                    }}
                                     className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-emerald-500 outline-none"
                                 />
                             </div>
@@ -344,7 +375,7 @@ export default function TemplatesPage() {
                             <button
                                 onClick={() => {
                                     setIsItemModalOpen(false);
-                                    setItemForm({ default_par_level: 0 }); // Reset form on cancel
+                                    setItemForm({ default_par_level: 1 }); // Reset form on cancel
                                 }}
                                 className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
                             >

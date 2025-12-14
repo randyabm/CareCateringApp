@@ -322,16 +322,59 @@ export default function LocationsPage() {
         }
     };
 
-    const handleUpdatePar = async (id: number, newPar: number) => {
-        await supabase.from('location_products').update({ par_level: newPar }).eq('id', id);
-        // Refresh local state to avoid flicker? Or just update local
-        setLocationStock(prev => prev.map(item => item.id === id ? { ...item, par_level: newPar } : item));
+    const handleUpdatePar = async (item: LocationProduct, newPar: number) => {
+        if (!selectedLocationForStock) return;
+        if (newPar < 1) return;
+
+        let query = supabase
+            .from('location_products')
+            .update({ par_level: newPar })
+            .eq('location_id', selectedLocationForStock.id)
+            .eq('product_id', item.product_id);
+
+        if (item.id) {
+            query = query.eq('id', item.id);
+        }
+
+        await query;
+
+        // Keep local state in sync even if the row id is missing/duplicate
+        setLocationStock(prev =>
+            prev.map(row =>
+                row.location_id === selectedLocationForStock.id && row.product_id === item.product_id
+                    ? { ...row, par_level: newPar }
+                    : row
+            )
+        );
     };
 
-    const handleRemoveStock = async (id: number) => {
-        if (!confirm('Remove this product from location?')) return;
-        await supabase.from('location_products').delete().eq('id', id);
-        setLocationStock(prev => prev.filter(item => item.id !== id));
+    const handleParInputChange = (item: LocationProduct, rawValue: string) => {
+        const parsed = parseInt(rawValue, 10);
+        if (Number.isNaN(parsed)) return;
+        handleUpdatePar(item, Math.max(1, parsed));
+    };
+
+    const handleRemoveStock = async (item: LocationProduct) => {
+        if (!selectedLocationForStock) return;
+        if (!confirm(`Remove ${item.product?.name || 'this product'} from location?`)) return;
+
+        await supabase
+            .from('location_products')
+            .delete()
+            .eq('location_id', selectedLocationForStock.id)
+            .eq('product_id', item.product_id);
+
+        // Keep UI in sync by refetching the latest stock
+        const { data } = await supabase
+            .from('location_products')
+            .select('*, product:products(*)')
+            .eq('location_id', selectedLocationForStock.id);
+
+        if (data) {
+            setLocationStock(data as any);
+        } else {
+            setLocationStock(prev => prev.filter(row => row.product_id !== item.product_id));
+        }
     };
 
     const handleApplyTemplate = async () => {
@@ -954,14 +997,15 @@ export default function LocationsPage() {
                                                         <td className="px-6 py-3">
                                                             <input
                                                                 type="number"
+                                                                min={1}
                                                                 value={item.par_level}
-                                                                onChange={(e) => handleUpdatePar(item.id, parseInt(e.target.value) || 0)}
+                                                                onChange={(e) => handleParInputChange(item, e.target.value)}
                                                                 className="w-24 border border-slate-300 rounded px-2 py-1 focus:ring-2 focus:ring-emerald-500 outline-none"
                                                             />
                                                         </td>
                                                         <td className="px-6 py-3 text-right">
                                                             <button
-                                                                onClick={() => handleRemoveStock(item.id)}
+                                                                onClick={() => handleRemoveStock(item)}
                                                                 className="text-red-500 hover:text-red-700"
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
