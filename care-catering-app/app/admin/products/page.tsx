@@ -308,18 +308,37 @@ export default function ProductsPage() {
     const handleAddTemplateItem = async () => {
         if (!selectedTemplate || !templateItemForm.product_id) return;
 
+        // Ensure template_id is a valid number
+        const templateId = Number(selectedTemplate.id);
+        if (!templateId || isNaN(templateId)) {
+            alert('Error: Invalid template ID. Please refresh the page.');
+            return;
+        }
+
+        // Verify template still exists before inserting
+        const { data: templateCheck, error: checkError } = await supabase
+            .from('templates')
+            .select('id')
+            .eq('id', templateId)
+            .single();
+
+        if (checkError || !templateCheck) {
+            alert('Error: Template no longer exists. Please refresh the page.');
+            return;
+        }
+
         const { error } = await supabase.from('template_items').insert({
-            template_id: selectedTemplate.id,
-            product_id: templateItemForm.product_id,
-            default_par_level: templateItemForm.default_par_level
+            template_id: templateId,
+            product_id: Number(templateItemForm.product_id),
+            default_par_level: Number(templateItemForm.default_par_level) || 0
         });
 
         if (error) {
-            alert('Error adding item (maybe duplicate?): ' + error.message);
+            alert('Error adding item: ' + error.message);
         } else {
             setShowTemplateItemModal(false);
             setTemplateItemForm({ default_par_level: 0 });
-            fetchTemplateItems(selectedTemplate.id);
+            fetchTemplateItems(templateId);
         }
     };
 

@@ -93,17 +93,39 @@ export default function TemplatesPage() {
     const handleAddItem = async () => {
         if (!selectedTemplate || !itemForm.product_id) return;
 
+        // Ensure template_id is a valid number
+        const templateId = Number(selectedTemplate.id);
+        if (!templateId || isNaN(templateId)) {
+            alert('Error: Invalid template ID. Please refresh the page.');
+            setView('list');
+            return;
+        }
+
+        // Verify template still exists before inserting
+        const { data: templateCheck, error: checkError } = await supabase
+            .from('templates')
+            .select('id')
+            .eq('id', templateId)
+            .single();
+
+        if (checkError || !templateCheck) {
+            alert('Error: Template no longer exists. Please refresh the page.');
+            setView('list');
+            return;
+        }
+
         const { error } = await supabase.from('template_items').insert({
-            template_id: selectedTemplate.id,
-            product_id: itemForm.product_id,
-            default_par_level: itemForm.default_par_level
+            template_id: templateId,
+            product_id: Number(itemForm.product_id),
+            default_par_level: Number(itemForm.default_par_level) || 0
         });
 
         if (error) {
-            alert('Error adding item (maybe duplicate?)');
+            alert(`Error adding item: ${error.message}`);
         } else {
             setIsItemModalOpen(false);
-            fetchTemplateItems(selectedTemplate.id);
+            setItemForm({ default_par_level: 0 }); // Reset form
+            fetchTemplateItems(templateId);
         }
     };
 
@@ -320,7 +342,10 @@ export default function TemplatesPage() {
                         </div>
                         <div className="p-6 bg-slate-50 flex justify-end gap-3">
                             <button
-                                onClick={() => setIsItemModalOpen(false)}
+                                onClick={() => {
+                                    setIsItemModalOpen(false);
+                                    setItemForm({ default_par_level: 0 }); // Reset form on cancel
+                                }}
                                 className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
                             >
                                 Cancel
