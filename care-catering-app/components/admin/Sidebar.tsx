@@ -8,6 +8,7 @@ const navigation = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { name: 'Locations', href: '/admin/locations', icon: MapPin },
     { name: 'Products', href: '/admin/products', icon: Package },
+    { name: 'Reports', href: '/admin/reportes', icon: FileText },
     { name: 'Users', href: '/admin/users', icon: Users },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];

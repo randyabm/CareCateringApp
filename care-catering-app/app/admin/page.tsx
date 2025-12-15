@@ -1,6 +1,6 @@
 import AdminLayout from '@/components/admin/AdminLayout';
 import Link from 'next/link';
-import { Settings, Users, ClipboardList, Database } from 'lucide-react';
+import { Settings, Users, ClipboardList, Database, FileText } from 'lucide-react';
 
 export default function AdminPage() {
     return (
@@ -58,6 +58,18 @@ export default function AdminPage() {
                                 <h3 className="text-lg font-semibold text-slate-800">User Management</h3>
                             </div>
                             <p className="text-sm text-slate-500">Manage hospital staff roles and access.</p>
+                        </div>
+                    </Link>
+
+                    <Link href="/admin/reportes" className="group">
+                        <div className="p-6 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-emerald-500/50 transition-all cursor-pointer">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="p-3 rounded-lg bg-teal-50 text-teal-600 group-hover:bg-teal-100 transition-colors">
+                                    <FileText className="w-6 h-6" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-slate-800">Reports</h3>
+                            </div>
+                            <p className="text-sm text-slate-500">KPIs and exports for stock, movements, and orders.</p>
                         </div>
                     </Link>
 

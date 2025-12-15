@@ -53,6 +53,8 @@ CREATE TABLE products (
   category TEXT, -- Legacy column, deprecated - use category_id instead
   category_id BIGINT REFERENCES product_categories(id),
   unit_size TEXT,
+  storage_stock INTEGER NOT NULL DEFAULT 0,
+  storage_reorder_point INTEGER NOT NULL DEFAULT 0,
   image_url TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -63,9 +65,24 @@ CREATE TABLE location_products (
   location_id BIGINT REFERENCES locations(id) ON DELETE CASCADE NOT NULL,
   product_id BIGINT REFERENCES products(id) ON DELETE CASCADE NOT NULL,
   par_level INTEGER DEFAULT 0 NOT NULL,
+  current_stock INTEGER NOT NULL DEFAULT 0,
+  reorder_point INTEGER NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
   UNIQUE(location_id, product_id)
 );
+
+-- Keep updated_at fresh on location_products updates
+CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = timezone('utc'::text, now());
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_location_products_updated_at ON location_products;
+CREATE TRIGGER trg_location_products_updated_at
+BEFORE UPDATE ON location_products
+FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 
 -- DIET_CODES (Unified Diet Logic)
 CREATE TABLE diet_codes (
@@ -151,5 +168,44 @@ CREATE POLICY "Store man view all orders" ON orders
     EXISTS (
       SELECT 1 FROM profiles 
       WHERE id = auth.uid() AND role = 'store_man'
+    )
+  );
+
+-- Products & location_products RLS
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE location_products ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Read products" ON products
+  FOR SELECT
+  USING (auth.role() IS NOT NULL);
+
+CREATE POLICY "Read location products" ON location_products
+  FOR SELECT
+  USING (auth.role() IS NOT NULL);
+
+CREATE POLICY "Manage product stock" ON products
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE id = auth.uid() AND role IN ('admin', 'store_man')
+    )
+  );
+
+CREATE POLICY "Insert location stock" ON location_products
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE id = auth.uid() AND role IN ('admin', 'store_man')
+    )
+  );
+
+CREATE POLICY "Update location stock" ON location_products
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles 
+      WHERE id = auth.uid() AND role IN ('admin', 'store_man')
     )
   );

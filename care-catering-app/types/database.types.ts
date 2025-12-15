@@ -39,16 +39,19 @@ export interface Database {
                 Row: {
                     id: number
                     name: string
+                    parent_group_id: number | null
                     created_at: string
                 }
                 Insert: {
                     id?: number
                     name: string
+                    parent_group_id?: number | null
                     created_at?: string
                 }
                 Update: {
                     id?: number
                     name?: string
+                    parent_group_id?: number | null
                     created_at?: string
                 }
             }
@@ -107,6 +110,8 @@ export interface Database {
                     category: string | null
                     image_url: string | null
                     unit_size: string | null
+                    storage_stock: number
+                    storage_reorder_point: number
                     created_at: string
                     category_id: number | null
                 }
@@ -118,6 +123,8 @@ export interface Database {
                     category?: string | null
                     image_url?: string | null
                     unit_size?: string | null
+                    storage_stock?: number
+                    storage_reorder_point?: number
                     created_at?: string
                     category_id?: number | null
                 }
@@ -129,6 +136,31 @@ export interface Database {
                     category?: string | null
                     image_url?: string | null
                     unit_size?: string | null
+                    storage_stock?: number
+                    storage_reorder_point?: number
+                    created_at?: string
+                }
+            }
+            order_items: {
+                Row: {
+                    id: number
+                    order_id: number | null
+                    product_id: number | null
+                    quantity: number
+                    created_at: string
+                }
+                Insert: {
+                    id?: number
+                    order_id?: number | null
+                    product_id?: number | null
+                    quantity: number
+                    created_at?: string
+                }
+                Update: {
+                    id?: number
+                    order_id?: number | null
+                    product_id?: number | null
+                    quantity?: number
                     created_at?: string
                 }
             }
@@ -167,6 +199,8 @@ export interface Database {
                     location_id: number
                     product_id: number
                     par_level: number
+                    current_stock: number
+                    reorder_point: number
                     updated_at: string
                 }
                 Insert: {
@@ -174,6 +208,8 @@ export interface Database {
                     location_id: number
                     product_id: number
                     par_level?: number
+                    current_stock?: number
+                    reorder_point?: number
                     updated_at?: string
                 }
                 Update: {
@@ -181,7 +217,49 @@ export interface Database {
                     location_id?: number
                     product_id?: number
                     par_level?: number
+                    current_stock?: number
+                    reorder_point?: number
                     updated_at?: string
+                }
+            }
+            order_dietary_flags: {
+                Row: {
+                    order_id: number
+                    diet_code_id: number
+                }
+                Insert: {
+                    order_id: number
+                    diet_code_id: number
+                }
+                Update: {
+                    order_id?: number
+                    diet_code_id?: number
+                }
+            }
+            catering_details: {
+                Row: {
+                    order_id: number
+                    primary_diet_id: number | null
+                    bed_number: string
+                    patient_name: string | null
+                    other_notes: string | null
+                    created_at: string
+                }
+                Insert: {
+                    order_id: number
+                    primary_diet_id?: number | null
+                    bed_number: string
+                    patient_name?: string | null
+                    other_notes?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    order_id?: number
+                    primary_diet_id?: number | null
+                    bed_number?: string
+                    patient_name?: string | null
+                    other_notes?: string | null
+                    created_at?: string
                 }
             }
             templates: {
@@ -226,7 +304,59 @@ export interface Database {
             }
         }
         Views: {
-            [_ in never]: never
+            report_stock_by_location: {
+                Row: {
+                    location_id: number
+                    location_name: string | null
+                    group_id: number | null
+                    group_name: string | null
+                    product_id: number
+                    product_name: string | null
+                    category_id: number | null
+                    category_name: string | null
+                    current_stock: number
+                    par_level: number
+                    reorder_point: number
+                    updated_at: string
+                    storage_stock: number
+                    storage_reorder_point: number
+                }
+            }
+            report_stock_movements: {
+                Row: {
+                    movement_id: number
+                    order_id: number
+                    movement_type: Database['public']['Enums']['order_type']
+                    order_status: Database['public']['Enums']['order_status']
+                    location_id: number | null
+                    location_name: string | null
+                    product_id: number | null
+                    product_name: string | null
+                    category_id: number | null
+                    category_name: string | null
+                    quantity: number
+                    user_id: string | null
+                    user_name: string | null
+                    created_at: string
+                    order_created_at: string
+                }
+            }
+            report_orders_summary: {
+                Row: {
+                    order_id: number
+                    created_at: string
+                    updated_at: string
+                    location_id: number | null
+                    location_name: string | null
+                    user_id: string | null
+                    user_name: string | null
+                    type: Database['public']['Enums']['order_type']
+                    status: Database['public']['Enums']['order_status']
+                    total_quantity: number
+                    items_count: number
+                    category_names: string[] | null
+                }
+            }
         }
         Functions: {
             [_ in never]: never
