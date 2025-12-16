@@ -8,10 +8,15 @@ import { Loader2, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 type Location = Database['public']['Tables']['locations']['Row'];
 type Product = Database['public']['Tables']['products']['Row'];
 
+type OrderType = Database['public']['Tables']['orders']['Row']['type'];
+
 type CustomOrderFormProps = {
     locations: Location[];
     products: Product[];
     onCreated?: () => void;
+    initialLocationId?: number;
+    initialLines?: { productId: number; quantity: number }[];
+    orderType?: OrderType;
 };
 
 type Line = {
@@ -20,10 +25,25 @@ type Line = {
     quantity: number;
 };
 
-export function CustomOrderForm({ locations, products, onCreated }: CustomOrderFormProps) {
+export function CustomOrderForm({
+    locations,
+    products,
+    onCreated,
+    initialLocationId,
+    initialLines,
+    orderType,
+}: CustomOrderFormProps) {
     const supabase = createClient();
-    const [locationId, setLocationId] = useState<number | ''>('');
-    const [lines, setLines] = useState<Line[]>([{ id: 1, productId: null, quantity: 1 }]);
+    const [locationId, setLocationId] = useState<number | ''>(initialLocationId ?? '');
+    const [lines, setLines] = useState<Line[]>(
+        initialLines && initialLines.length > 0
+            ? initialLines.map((l, index) => ({
+                  id: index + 1,
+                  productId: l.productId,
+                  quantity: l.quantity,
+              }))
+            : [{ id: 1, productId: null, quantity: 1 }]
+    );
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
@@ -71,7 +91,7 @@ export function CustomOrderForm({ locations, products, onCreated }: CustomOrderF
                 .from('orders')
                 .insert({
                     location_id: locationId,
-                    type: 'proactive_restock',
+                    type: orderType ?? 'proactive_restock',
                     status: 'pending',
                 })
                 .select()

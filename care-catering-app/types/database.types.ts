@@ -337,6 +337,134 @@ export interface Database {
                     updated_at?: string
                 }
             }
+            notes: {
+                Row: {
+                    id: number
+                    location_id: number | null
+                    message: string
+                    color: string | null
+                    pinned: boolean
+                    resolved: boolean
+                    expires_at: string | null
+                    created_by: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: number
+                    location_id?: number | null
+                    message: string
+                    color?: string | null
+                    pinned?: boolean
+                    resolved?: boolean
+                    expires_at?: string | null
+                    created_by?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: number
+                    location_id?: number | null
+                    message?: string
+                    color?: string | null
+                    pinned?: boolean
+                    resolved?: boolean
+                    expires_at?: string | null
+                    created_by?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+            }
+            rounds: {
+                Row: {
+                    id: number
+                    user_id: string | null
+                    status: string
+                    started_at: string
+                    finished_at: string | null
+                    notes: string | null
+                }
+                Insert: {
+                    id?: number
+                    user_id?: string | null
+                    status?: string
+                    started_at?: string
+                    finished_at?: string | null
+                    notes?: string | null
+                }
+                Update: {
+                    id?: number
+                    user_id?: string | null
+                    status?: string
+                    started_at?: string
+                    finished_at?: string | null
+                    notes?: string | null
+                }
+            }
+            round_visits: {
+                Row: {
+                    id: number
+                    round_id: number | null
+                    location_id: number | null
+                    status: string
+                    visited_at: string | null
+                    skipped_reason: string | null
+                }
+                Insert: {
+                    id?: number
+                    round_id?: number | null
+                    location_id?: number | null
+                    status?: string
+                    visited_at?: string | null
+                    skipped_reason?: string | null
+                }
+                Update: {
+                    id?: number
+                    round_id?: number | null
+                    location_id?: number | null
+                    status?: string
+                    visited_at?: string | null
+                    skipped_reason?: string | null
+                }
+            }
+            round_visit_items: {
+                Row: {
+                    id: number
+                    round_visit_id: number | null
+                    location_id: number | null
+                    product_id: number | null
+                    before_stock: number | null
+                    after_stock: number | null
+                    quantity_delta: number | null
+                    created_future_order: boolean
+                    created_order_id: number | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: number
+                    round_visit_id?: number | null
+                    location_id?: number | null
+                    product_id?: number | null
+                    before_stock?: number | null
+                    after_stock?: number | null
+                    quantity_delta?: number | null
+                    created_future_order?: boolean
+                    created_order_id?: number | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: number
+                    round_visit_id?: number | null
+                    location_id?: number | null
+                    product_id?: number | null
+                    before_stock?: number | null
+                    after_stock?: number | null
+                    quantity_delta?: number | null
+                    created_future_order?: boolean
+                    created_order_id?: number | null
+                    created_at?: string
+                }
+            }
         }
         Views: {
             report_stock_by_location: {

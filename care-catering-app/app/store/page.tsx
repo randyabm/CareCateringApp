@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { Database } from '@/types/database.types';
 import { StockSummaryCards } from '@/components/store/StockSummaryCards';
@@ -9,10 +10,11 @@ import { GapAnalysis } from '@/components/store/GapAnalysis';
 import { RestockOrderGenerator } from '@/components/store/RestockOrderGenerator';
 import { StockUpdateForm } from '@/components/store/StockUpdateForm';
 import { StorageStock } from '@/components/store/StorageStock';
-import { Loader2, Package, TrendingDown, ShoppingCart, Edit, Warehouse, ClipboardList, Truck, Megaphone } from 'lucide-react';
+import { Loader2, Package, TrendingDown, ShoppingCart, Edit, Warehouse, ClipboardList, Truck, Megaphone, StickyNote } from 'lucide-react';
 import { OrdersTable } from '@/components/store/OrdersTable';
 import { OrderPicking } from '@/components/store/OrderPicking';
 import { CustomOrderForm } from '@/components/store/CustomOrderForm';
+import { useNotes } from '@/components/notes/NotesProvider';
 
 type StockRow = Database['public']['Views']['report_stock_by_location']['Row'];
 type OrderRow = Database['public']['Views']['report_orders_summary']['Row'];
@@ -41,6 +43,11 @@ export default function StorePage() {
     const [selectedOrderIds, setSelectedOrderIds] = useState<number[]>([]);
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [profile, setProfile] = useState<Profile | null>(null);
+    const [futureOrderDraft, setFutureOrderDraft] = useState<{
+        locationId: number;
+        items: { productId: number; quantity: number }[];
+    } | null>(null);
+    const { openDrawer, setLocationContext } = useNotes();
 
     const fetchData = async () => {
         setRefreshing(true);
@@ -85,7 +92,7 @@ export default function StorePage() {
                 supabase
                     .from('report_orders_summary')
                     .select('*')
-                    .eq('type', 'proactive_restock')
+                    .in('type', ['proactive_restock', 'future_order'])
                     .order('created_at', { ascending: false }),
                 supabase.from('locations').select('*').order('name'),
                 supabase.from('location_groups').select('*').order('name'),
@@ -121,6 +128,12 @@ export default function StorePage() {
     useEffect(() => {
         fetchData();
     }, []);
+
+    useEffect(() => {
+        if (profile?.assigned_location_id) {
+            setLocationContext(profile.assigned_location_id);
+        }
+    }, [profile?.assigned_location_id, setLocationContext]);
 
     const getLocationName = (id: number | null) => {
         if (!id) return 'All locations';
@@ -184,17 +197,39 @@ export default function StorePage() {
                             <h1 className="text-3xl md:text-4xl font-bold text-primary mb-2">Store Logistics</h1>
                             <p className="text-muted-foreground">Inventory management, par levels, and gap analysis.</p>
                         </div>
-                        <button
-                            onClick={fetchData}
-                            disabled={refreshing}
-                            className="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center gap-2"
-                        >
-                            {refreshing ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <span className="text-sm font-medium">Refresh</span>
-                            )}
-                        </button>
+                        <div className="flex items-center gap-3">
+                            <button
+                            onClick={() =>
+                                openDrawer({
+                                    locationId: profile?.assigned_location_id ?? null,
+                                    locationName: profile?.assigned_location_id
+                                        ? getLocationName(profile.assigned_location_id)
+                                        : null,
+                                })
+                            }
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2"
+                            >
+                                <StickyNote className="h-4 w-4 text-amber-500" />
+                                <span className="text-sm font-medium">Notes</span>
+                            </button>
+                            <Link
+                                href="/store/rounds"
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-2 text-sm font-medium text-slate-700"
+                            >
+                                Store Rounds
+                            </Link>
+                            <button
+                                onClick={fetchData}
+                                disabled={refreshing}
+                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {refreshing ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <span className="text-sm font-medium">Refresh</span>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </header>
 
@@ -301,6 +336,14 @@ export default function StorePage() {
                             locations={locations}
                             groups={groups}
                             onOrderCreated={handleOrderCreated}
+                            onFutureOrderRequested={drafts => {
+                                // For now, we take the first draft with lines and open the Future Order builder
+                                const first = drafts.find(d => d.items.length > 0);
+                                if (first) {
+                                    setFutureOrderDraft(first);
+                                    setActiveTab('new-order');
+                                }
+                            }}
                         />
                     )}
 
@@ -324,6 +367,9 @@ export default function StorePage() {
                             onSelectionChange={ids => {
                                 setSelectedOrderIds(ids);
                             }}
+                            onStatusUpdated={async () => {
+                                await fetchData();
+                            }}
                         />
                     )}
 
@@ -333,8 +379,12 @@ export default function StorePage() {
                         <CustomOrderForm
                             locations={locations}
                             products={products}
+                            initialLocationId={futureOrderDraft?.locationId}
+                            initialLines={futureOrderDraft?.items}
+                            orderType={futureOrderDraft ? 'future_order' : 'proactive_restock'}
                             onCreated={async () => {
                                 await fetchData();
+                                setFutureOrderDraft(null);
                                 setActiveTab('orders');
                             }}
                         />

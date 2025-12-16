@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import AdminSidebar from './Sidebar';
-import { Menu } from 'lucide-react';
+import { Menu, StickyNote } from 'lucide-react';
+import { useNotes } from '../notes/NotesProvider';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const [isSidebarOpen, setSidebarOpen] = useState(true);
+    const { openDrawer } = useNotes();
 
     return (
         <div className="flex h-screen bg-slate-50">
@@ -29,6 +31,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <h2 className="text-lg font-semibold text-slate-800">Hospital Logistics Console</h2>
                     </div>
                     <div className="flex items-center space-x-4">
+                        <button
+                            onClick={() => openDrawer()}
+                            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                            <StickyNote className="h-4 w-4 text-amber-500" />
+                            Notes
+                        </button>
                         <span className="text-sm text-slate-500">Admin User</span>
                         <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
                             A

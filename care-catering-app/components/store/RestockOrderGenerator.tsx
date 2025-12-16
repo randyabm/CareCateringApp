@@ -15,6 +15,12 @@ type RestockOrderGeneratorProps = {
     locations: Location[];
     groups: LocationGroup[];
     onOrderCreated?: () => void;
+    onFutureOrderRequested?: (
+        drafts: {
+            locationId: number;
+            items: { productId: number; quantity: number }[];
+        }[]
+    ) => void;
 };
 
 type RestockItem = {
@@ -24,6 +30,8 @@ type RestockItem = {
     parLevel: number;
     gap: number;
     quantity: number;
+    futureFlag: boolean;
+    futureQty: number;
 };
 
 type LocationRestock = {
@@ -38,6 +46,7 @@ export function RestockOrderGenerator({
     locations,
     groups,
     onOrderCreated,
+    onFutureOrderRequested,
 }: RestockOrderGeneratorProps) {
     const supabase = createClient();
     const [selectedLocation, setSelectedLocation] = useState<LocationTreeValue>('all');
@@ -93,7 +102,9 @@ export function RestockOrderGenerator({
                     currentStock: row.current_stock,
                     parLevel: row.par_level,
                     gap,
-                    quantity: gap, // Default quantity equals gap
+                    quantity: gap, // Default quantity equals gap (deliver now)
+                    futureFlag: false,
+                    futureQty: gap, // Default suggestion for future order
                 };
             });
 
@@ -127,6 +138,44 @@ export function RestockOrderGenerator({
         );
     };
 
+    const toggleFutureFlag = (locationId: number, productId: number, checked: boolean) => {
+        setLocationRestocks(prev =>
+            prev.map(locRestock => {
+                if (locRestock.locationId !== locationId) return locRestock;
+                return {
+                    ...locRestock,
+                    items: locRestock.items.map(item => {
+                        if (item.productId !== productId) return item;
+                        return {
+                            ...item,
+                            futureFlag: checked,
+                            // If turning on and futureQty is zero, default to current gap
+                            futureQty: checked && item.futureQty <= 0 ? Math.max(0, item.gap) : item.futureQty,
+                        };
+                    }),
+                };
+            })
+        );
+    };
+
+    const updateFutureQty = (locationId: number, productId: number, newQty: number) => {
+        setLocationRestocks(prev =>
+            prev.map(locRestock => {
+                if (locRestock.locationId !== locationId) return locRestock;
+                return {
+                    ...locRestock,
+                    items: locRestock.items.map(item => {
+                        if (item.productId !== productId) return item;
+                        return {
+                            ...item,
+                            futureQty: Math.max(0, newQty),
+                        };
+                    }),
+                };
+            })
+        );
+    };
+
     const createOrders = async () => {
         if (locationRestocks.length === 0) {
             setError('No restock items selected');
@@ -136,6 +185,10 @@ export function RestockOrderGenerator({
         setCreating(true);
         setError(null);
         const newOrderIds: number[] = [];
+        const futureDrafts: {
+            locationId: number;
+            items: { productId: number; quantity: number }[];
+        }[] = [];
 
         try {
             // Allow bypassing auth while testing (set NEXT_PUBLIC_BYPASS_AUTH=true)
@@ -180,11 +233,31 @@ export function RestockOrderGenerator({
                     const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
                     if (itemsError) throw itemsError;
                 }
+
+                // Collect future-order draft lines for this location (UI step 2)
+                const futureItems = locRestock.items
+                    .filter(item => item.futureFlag && item.futureQty > 0)
+                    .map(item => ({
+                        productId: item.productId,
+                        quantity: item.futureQty,
+                    }));
+
+                if (futureItems.length > 0) {
+                    futureDrafts.push({
+                        locationId: locRestock.locationId,
+                        items: futureItems,
+                    });
+                }
             }
 
             setCreatedOrders(newOrderIds);
             if (onOrderCreated) {
                 onOrderCreated();
+            }
+
+            // If there are any future-draft lines, hand them off to the future-order builder
+            if (futureDrafts.length > 0 && onFutureOrderRequested) {
+                onFutureOrderRequested(futureDrafts);
             }
         } catch (err) {
             console.error('Error creating orders:', err);
@@ -253,7 +326,9 @@ export function RestockOrderGenerator({
                                             <th className="px-4 py-2 text-right text-xs font-medium text-slate-600 uppercase">Current</th>
                                             <th className="px-4 py-2 text-right text-xs font-medium text-slate-600 uppercase">Par Level</th>
                                             <th className="px-4 py-2 text-right text-xs font-medium text-slate-600 uppercase">Gap</th>
-                                            <th className="px-4 py-2 text-right text-xs font-medium text-slate-600 uppercase">Quantity</th>
+                                            <th className="px-4 py-2 text-right text-xs font-medium text-slate-600 uppercase">Quantity (Deliver Now)</th>
+                                            <th className="px-4 py-2 text-center text-xs font-medium text-slate-600 uppercase">Future?</th>
+                                            <th className="px-4 py-2 text-right text-xs font-medium text-slate-600 uppercase">Future Qty</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-200">
@@ -277,6 +352,33 @@ export function RestockOrderGenerator({
                                                         min="0"
                                                         className="w-20 px-2 py-1 border border-slate-300 rounded text-sm text-right"
                                                         disabled={creating}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={item.futureFlag}
+                                                        onChange={e =>
+                                                            toggleFutureFlag(locRestock.locationId, item.productId, e.target.checked)
+                                                        }
+                                                        disabled={creating}
+                                                        className="h-4 w-4 rounded border-slate-300 text-emerald-600"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2 text-right">
+                                                    <input
+                                                        type="number"
+                                                        value={item.futureQty}
+                                                        onChange={e =>
+                                                            updateFutureQty(
+                                                                locRestock.locationId,
+                                                                item.productId,
+                                                                parseInt(e.target.value, 10) || 0
+                                                            )
+                                                        }
+                                                        min="0"
+                                                        className="w-20 px-2 py-1 border border-slate-300 rounded text-sm text-right disabled:bg-slate-50"
+                                                        disabled={creating || !item.futureFlag}
                                                     />
                                                 </td>
                                             </tr>

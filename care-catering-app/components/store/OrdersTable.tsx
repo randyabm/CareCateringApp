@@ -10,13 +10,22 @@ type MovementRow = Database['public']['Views']['report_stock_movements']['Row'];
 
 const ORDER_STATUSES: OrderRow['status'][] = ['pending', 'approved', 'processing', 'delivered', 'cancelled'];
 
+const STATUS_STYLES: Record<OrderRow['status'], string> = {
+    pending: 'bg-amber-50 text-amber-800 border-amber-200',
+    approved: 'bg-sky-50 text-sky-800 border-sky-200',
+    processing: 'bg-indigo-50 text-indigo-800 border-indigo-200',
+    delivered: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    cancelled: 'bg-red-50 text-red-800 border-red-200',
+};
+
 type OrdersTableProps = {
     orders: OrderRow[];
     selectedOrderIds?: number[];
     onSelectionChange?: (ids: number[]) => void;
+    onStatusUpdated?: () => void;
 };
 
-export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }: OrdersTableProps) {
+export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange, onStatusUpdated }: OrdersTableProps) {
     const supabase = createClient();
     const [expandedOrderId, setExpandedOrderId] = useState<number | null>(null);
     const [details, setDetails] = useState<
@@ -32,6 +41,10 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }
     const [updatingStatusId, setUpdatingStatusId] = useState<number | null>(null);
     const [statusOverrides, setStatusOverrides] = useState<Record<number, OrderRow['status']>>({});
     const [statusError, setStatusError] = useState<string | null>(null);
+    const [statusFilter, setStatusFilter] = useState<OrderRow['status'] | 'all'>('all');
+    const [locationFilter, setLocationFilter] = useState<string>('all');
+    const [typeFilter, setTypeFilter] = useState<string>('all');
+    const [userFilter, setUserFilter] = useState<string>('all');
 
     const handleToggle = async (orderId: number) => {
         if (expandedOrderId === orderId) {
@@ -67,7 +80,30 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }
     };
 
     const handleStatusChange = async (order: OrderRow, newStatus: OrderRow['status']) => {
-        if (order.status === newStatus) return;
+        const currentStatus = statusOverrides[order.order_id] ?? order.status;
+
+        // Do not allow any further changes once an order has been cancelled or delivered
+        if (currentStatus === 'cancelled' || currentStatus === 'delivered') {
+            setStatusError('This order has been finished and its status can no longer be changed.');
+            return;
+        }
+
+        if (currentStatus === newStatus) return;
+
+        // Ask for confirmation before cancelling or delivering an order
+        if (newStatus === 'cancelled' || newStatus === 'delivered') {
+            const message =
+                newStatus === 'cancelled'
+                    ? 'Are you sure you want to cancel this order? This action cannot be undone and the status will be locked.'
+                    : 'Are you sure you want to mark this order as delivered? This action cannot be undone and the status will be locked.';
+
+            const confirmed =
+                typeof window !== 'undefined' ? window.confirm(message) : true;
+
+            if (!confirmed) {
+                return;
+            }
+        }
 
         setStatusError(null);
         setUpdatingStatusId(order.order_id);
@@ -86,9 +122,78 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }
                 delete copy[order.order_id];
                 return copy;
             });
+            setUpdatingStatusId(null);
+            return;
+        }
+
+        // If order was marked as delivered, adjust storage stock for the related products
+        if (newStatus === 'delivered') {
+            try {
+                // Remove this order from the current picking selection if applicable
+                if (onSelectionChange && selectedOrderIds.length > 0) {
+                    const nextIds = selectedOrderIds.filter(id => id !== order.order_id);
+                    onSelectionChange(nextIds);
+                }
+
+                // Load all movement rows for this order to know which products and quantities are involved
+                const { data: movementData, error: movementError } = await supabase
+                    .from('report_stock_movements')
+                    .select('product_id, quantity')
+                    .eq('order_id', order.order_id);
+
+                if (movementError) {
+                    console.error('Error loading movement rows for delivered order', movementError);
+                    setStatusError(movementError.message);
+                } else if (movementData && movementData.length > 0) {
+                    const totalsByProduct = new Map<number, number>();
+                    for (const row of movementData as MovementRow[]) {
+                        if (!row.product_id) continue;
+                        const current = totalsByProduct.get(row.product_id) ?? 0;
+                        totalsByProduct.set(row.product_id, current + row.quantity);
+                    }
+
+                    const productIds = Array.from(totalsByProduct.keys());
+
+                    if (productIds.length > 0) {
+                        // Get current storage_stock values
+                        const { data: productsData, error: productsError } = await supabase
+                            .from('products')
+                            .select('id, storage_stock')
+                            .in('id', productIds);
+
+                        if (productsError) {
+                            console.error('Error loading products for storage adjustment', productsError);
+                            setStatusError(productsError.message);
+                        } else if (productsData && productsData.length > 0) {
+                            // Apply decrements per product
+                            const updates = productsData.map(prod => {
+                                const totalQty = totalsByProduct.get(prod.id as number) ?? 0;
+                                const newStock = Math.max(0, (prod.storage_stock as number) - totalQty);
+                                return supabase
+                                    .from('products')
+                                    .update({ storage_stock: newStock })
+                                    .eq('id', prod.id);
+                            });
+
+                            const results = await Promise.all(updates);
+                            const failed = results.find(r => r.error);
+                            if (failed && failed.error) {
+                                console.error('Error updating storage stock for delivered order', failed.error);
+                                setStatusError(failed.error.message);
+                            }
+                        }
+                    }
+                }
+            } catch (adjustError) {
+                console.error('Unexpected error adjusting storage stock for delivered order', adjustError);
+            }
         }
 
         setUpdatingStatusId(null);
+
+        if (onStatusUpdated) {
+            onStatusUpdated();
+        }
     };
 
     if (orders.length === 0) {
@@ -99,12 +204,30 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }
         );
     }
 
+    const locationOptions = Array.from(
+        new Set(orders.map(order => order.location_name).filter((name): name is string => Boolean(name)))
+    );
+    const typeOptions = Array.from(
+        new Set(orders.map(order => order.type).filter(type => Boolean(type)))
+    );
+    const userOptions = Array.from(
+        new Set(orders.map(order => order.user_name).filter((name): name is string => Boolean(name)))
+    );
+
+    const filteredOrders = orders.filter(order => {
+        if (statusFilter !== 'all' && order.status !== statusFilter) return false;
+        if (locationFilter !== 'all' && order.location_name !== locationFilter) return false;
+        if (typeFilter !== 'all' && order.type !== typeFilter) return false;
+        if (userFilter !== 'all' && order.user_name !== userFilter) return false;
+        return true;
+    });
+
     return (
         <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-slate-900">Restock Orders</h2>
                 <p className="text-sm text-slate-500">
-                    Showing {orders.length} order{orders.length !== 1 ? 's' : ''}.
+                    Showing {filteredOrders.length} order{filteredOrders.length !== 1 ? 's' : ''}.
                 </p>
             </div>
             <div className="overflow-x-auto">
@@ -114,15 +237,80 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }
                             <th className="px-4 py-2 w-10" />
                             <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Order ID</th>
                             <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Date</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Location</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">User</th>
-                            <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                            <th className="px-4 py-1 text-left text-xs font-medium text-slate-500 uppercase align-top">
+                                <div className="flex flex-col gap-1">
+                                    <span>Type</span>
+                                    <select
+                                        value={typeFilter}
+                                        onChange={e => setTypeFilter(e.target.value)}
+                                        className="rounded border border-slate-300 bg-white px-2 py-1 text-xxs text-slate-800"
+                                    >
+                                        <option value="all">All</option>
+                                        {typeOptions.map(type => (
+                                            <option key={type} value={type}>
+                                                {type.replace('_', ' ')}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </th>
+                            <th className="px-4 py-1 text-left text-xs font-medium text-slate-500 uppercase align-top">
+                                <div className="flex flex-col gap-1">
+                                    <span>Location</span>
+                                    <select
+                                        value={locationFilter}
+                                        onChange={e => setLocationFilter(e.target.value)}
+                                        className="rounded border border-slate-300 bg-white px-2 py-1 text-xxs text-slate-800"
+                                    >
+                                        <option value="all">All</option>
+                                        {locationOptions.map(location => (
+                                            <option key={location} value={location}>
+                                                {location}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </th>
+                            <th className="px-4 py-1 text-left text-xs font-medium text-slate-500 uppercase align-top">
+                                <div className="flex flex-col gap-1">
+                                    <span>User</span>
+                                    <select
+                                        value={userFilter}
+                                        onChange={e => setUserFilter(e.target.value)}
+                                        className="rounded border border-slate-300 bg-white px-2 py-1 text-xxs text-slate-800"
+                                    >
+                                        <option value="all">All</option>
+                                        {userOptions.map(user => (
+                                            <option key={user} value={user}>
+                                                {user}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </th>
+                            <th className="px-4 py-1 text-left text-xs font-medium text-slate-500 uppercase align-top">
+                                <div className="flex flex-col gap-1">
+                                    <span>Status</span>
+                                    <select
+                                        value={statusFilter}
+                                        onChange={e => setStatusFilter(e.target.value as OrderRow['status'] | 'all')}
+                                        className="rounded border border-slate-300 bg-white px-2 py-1 text-xxs text-slate-800"
+                                    >
+                                        <option value="all">All</option>
+                                        {ORDER_STATUSES.map(status => (
+                                            <option key={status} value={status}>
+                                                {status}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </th>
                             <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Items</th>
                             <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Total Qty</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
-                        {orders.map(order => {
+                        {filteredOrders.map(order => {
                             const effectiveStatus = statusOverrides[order.order_id] ?? order.status;
                             const isSelected = selectedOrderIds.includes(order.order_id);
                             return (
@@ -142,7 +330,7 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }
                                                     <ChevronRight className="h-4 w-4" />
                                                 )}
                                             </button>
-                                            {onSelectionChange && (
+                                            {onSelectionChange && effectiveStatus === 'pending' && (
                                                 <input
                                                     type="checkbox"
                                                     checked={isSelected}
@@ -162,6 +350,9 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }
                                     <td className="px-4 py-2 text-sm text-slate-600">
                                         {new Date(order.created_at).toLocaleString()}
                                     </td>
+                                    <td className="px-4 py-2 text-sm text-slate-700 capitalize">
+                                        {order.type?.replace('_', ' ') ?? '—'}
+                                    </td>
                                     <td className="px-4 py-2 text-sm text-slate-700">
                                         {order.location_name ?? '—'}
                                     </td>
@@ -169,18 +360,26 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange }
                                         {order.user_name ?? '—'}
                                     </td>
                                     <td className="px-4 py-2 text-sm">
-                                        <select
-                                            value={effectiveStatus}
-                                            onChange={e => handleStatusChange(order, e.target.value as OrderRow['status'])}
-                                            disabled={updatingStatusId === order.order_id}
-                                            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
+                                        <div
+                                            className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[effectiveStatus]}`}
                                         >
-                                            {ORDER_STATUSES.map(status => (
-                                                <option key={status} value={status}>
-                                                    {status}
-                                                </option>
-                                            ))}
-                                        </select>
+                                            <select
+                                                value={effectiveStatus}
+                                                onChange={e => handleStatusChange(order, e.target.value as OrderRow['status'])}
+                                                disabled={
+                                                    updatingStatusId === order.order_id ||
+                                                    effectiveStatus === 'cancelled' ||
+                                                    effectiveStatus === 'delivered'
+                                                }
+                                                className="bg-transparent border-none focus:ring-0 text-xs font-medium pr-4 cursor-pointer disabled:cursor-not-allowed"
+                                            >
+                                                {ORDER_STATUSES.map(status => (
+                                                    <option key={status} value={status}>
+                                                        {status}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                     </td>
                                     <td className="px-4 py-2 text-sm text-right text-slate-700">
                                         {order.items_count}
