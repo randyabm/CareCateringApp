@@ -454,7 +454,8 @@ export default function ProductsPage() {
     };
 
     const handleUpdateTemplateItemPar = async (id: number, newPar: number) => {
-        await supabase.from('template_items').update({ default_par_level: newPar }).eq('id', id);
+        const safePar = Math.max(1, newPar || 1);
+        await supabase.from('template_items').update({ default_par_level: safePar }).eq('id', id);
         if (selectedTemplate) fetchTemplateItems(selectedTemplate.id);
     };
 
@@ -714,8 +715,10 @@ export default function ProductsPage() {
             }
         } catch (error: any) {
             setCsvResults({
-                success: 0,
-                errors: [`Error processing CSV: ${error.message}`]
+                new: 0,
+                updated: 0,
+                updatedProducts: [],
+                errors: [`Error processing CSV: ${error.message}`],
             });
         } finally {
             setCsvUploading(false);
@@ -1045,7 +1048,7 @@ export default function ProductsPage() {
                                                     <button 
                                                         onClick={() => {
                                                             setShowInlineAddForm(false);
-                                                            setFormData({ name: '', unit_price: '0.00', unit_size: '', category_id: '', requires_approval: false });
+                                                            setFormData({ name: '', unit_price: '0.00', unit_size: '', category_id: '', requires_approval: false, storage_stock: 0, storage_reorder_point: 0 });
                                                         }} 
                                                         className="p-1 text-slate-400 hover:bg-slate-100 rounded"
                                                     >
@@ -1711,8 +1714,9 @@ export default function ProductsPage() {
                                                 <td className="px-6 py-3">
                                                     <input
                                                         type="number"
+                                                        min="1"
                                                         value={item.default_par_level}
-                                                        onChange={(e) => handleUpdateTemplateItemPar(item.id, parseInt(e.target.value) || 0)}
+                                                        onChange={(e) => handleUpdateTemplateItemPar(item.id, parseInt(e.target.value) || 1)}
                                                         className="w-20 border border-slate-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                                                     />
                                                 </td>

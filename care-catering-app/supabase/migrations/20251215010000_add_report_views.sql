@@ -1,6 +1,10 @@
 -- Vistas para reportes
 
-create or replace view report_stock_by_location as
+drop view if exists report_stock_by_location;
+drop view if exists report_stock_movements;
+drop view if exists report_orders_summary;
+
+create view report_stock_by_location as
 select
     lp.location_id,
     l.name as location_name,
@@ -8,6 +12,7 @@ select
     lg.name as group_name,
     lp.product_id,
     p.name as product_name,
+    p.unit_size,
     p.category_id,
     pc.name as category_name,
     lp.current_stock,
@@ -22,7 +27,7 @@ left join location_groups lg on lg.id = l.group_id
 join products p on p.id = lp.product_id
 left join product_categories pc on pc.id = p.category_id;
 
-create or replace view report_stock_movements as
+create view report_stock_movements as
 select
     oi.id as movement_id,
     oi.order_id,
@@ -32,6 +37,7 @@ select
     l.name as location_name,
     oi.product_id,
     p.name as product_name,
+    p.unit_size,
     p.category_id,
     pc.name as category_name,
     oi.quantity,
@@ -46,7 +52,7 @@ left join products p on p.id = oi.product_id
 left join product_categories pc on pc.id = p.category_id
 left join profiles prof on prof.id = o.user_id;
 
-create or replace view report_orders_summary as
+create view report_orders_summary as
 select
     o.id as order_id,
     o.created_at,
@@ -80,6 +86,10 @@ create policy "Admin view all orders" on orders
             where p.id = auth.uid() and p.role = 'admin'
         )
     );
+
+drop policy if exists "Orders insert (authenticated)" on orders;
+create policy "Orders insert (authenticated)" on orders
+    for insert with check (auth.role() is not null);
 
 drop policy if exists "Admin view order_items" on order_items;
 create policy "Admin view order_items" on order_items

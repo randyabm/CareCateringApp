@@ -445,10 +445,11 @@ export default function LocationsPage() {
     const handleAddStock = async () => {
         if (!selectedLocationForStock || !stockForm.product_id) return;
 
+        const safePar = Math.max(1, stockForm.par_level || 1);
         const { error } = await supabase.from('location_products').insert({
             location_id: selectedLocationForStock.id,
             product_id: stockForm.product_id,
-            par_level: stockForm.par_level,
+            par_level: safePar,
             current_stock: Math.max(0, stockForm.current_stock),
             reorder_point: Math.max(0, stockForm.reorder_point)
         });
@@ -504,21 +505,21 @@ export default function LocationsPage() {
     };
 
     const handleParInputChange = (item: LocationProduct, rawValue: string) => {
-        const parsed = parseInt(rawValue, 10);
-        if (Number.isNaN(parsed)) return;
-        updateLocationStock(item, { par_level: Math.max(1, parsed) });
+        const parsed = rawValue === '' ? 0 : Number(rawValue);
+        const safePar = Math.max(1, Number.isFinite(parsed) ? parsed : 1);
+        updateLocationStock(item, { par_level: safePar });
     };
 
     const handleCurrentStockChange = (item: LocationProduct, rawValue: string) => {
-        const parsed = parseInt(rawValue, 10);
-        if (Number.isNaN(parsed) || parsed < 0) return;
-        updateLocationStock(item, { current_stock: parsed });
+        const parsed = rawValue === '' ? 0 : Number(rawValue);
+        const safeValue = Math.max(0, Number.isFinite(parsed) ? parsed : 0);
+        updateLocationStock(item, { current_stock: safeValue });
     };
 
     const handleReorderPointChange = (item: LocationProduct, rawValue: string) => {
-        const parsed = parseInt(rawValue, 10);
-        if (Number.isNaN(parsed) || parsed < 0) return;
-        updateLocationStock(item, { reorder_point: parsed });
+        const parsed = rawValue === '' ? 0 : Number(rawValue);
+        const safeValue = Math.max(0, Number.isFinite(parsed) ? parsed : 0);
+        updateLocationStock(item, { reorder_point: safeValue });
     };
 
     const handleRemoveStock = async (item: LocationProduct) => {
@@ -1286,7 +1287,7 @@ export default function LocationsPage() {
                                                     <span className="text-xs text-slate-500 px-1">Par</span>
                                                     <input
                                                         type="number"
-                                                        min={0}
+                                                        min={1}
                                                         placeholder="Par"
                                                         value={stockForm.par_level}
                                                         onFocus={(e) => e.target.select()}
@@ -1296,7 +1297,7 @@ export default function LocationsPage() {
                                                                 handleAddStock();
                                                             }
                                                         }}
-                                                        onChange={e => setStockForm({ ...stockForm, par_level: parseInt(e.target.value) || 0 })}
+                                                        onChange={e => setStockForm({ ...stockForm, par_level: Math.max(1, parseInt(e.target.value) || 1) })}
                                                         className="w-full md:w-24 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                                                     />
                                                 </div>

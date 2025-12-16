@@ -302,6 +302,41 @@ export interface Database {
                     default_par_level?: number
                 }
             }
+            announcements: {
+                Row: {
+                    id: number
+                    title: string
+                    message: string
+                    start_date: string
+                    end_date: string
+                    location_id: number | null
+                    created_by: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: number
+                    title: string
+                    message: string
+                    start_date: string
+                    end_date: string
+                    location_id?: number | null
+                    created_by?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: number
+                    title?: string
+                    message?: string
+                    start_date?: string
+                    end_date?: string
+                    location_id?: number | null
+                    created_by?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+            }
         }
         Views: {
             report_stock_by_location: {
@@ -312,6 +347,7 @@ export interface Database {
                     group_name: string | null
                     product_id: number
                     product_name: string | null
+                    unit_size: string | null
                     category_id: number | null
                     category_name: string | null
                     current_stock: number
@@ -332,6 +368,7 @@ export interface Database {
                     location_name: string | null
                     product_id: number | null
                     product_name: string | null
+                    unit_size: string | null
                     category_id: number | null
                     category_name: string | null
                     quantity: number
