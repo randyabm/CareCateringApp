@@ -412,7 +412,7 @@ export default function ProductsPage() {
 
         if (error) {
             // Check if it's a unique constraint violation (duplicate)
-            if (error.code === '23505' || error.message.includes('duplicate') || error.message.includes('unique')) {
+            if (error.code === '23505' || error.message?.includes('duplicate') || error.message?.includes('unique')) {
                 alert('Error: This item already exists in the template.');
             } else {
                 alert('Error adding item: ' + error.message);
