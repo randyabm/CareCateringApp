@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MapPin, Package, Users, LogOut, Settings, FileText, Megaphone } from 'lucide-react';
+import { LayoutDashboard, MapPin, Package, Users, LogOut, Settings, FileText, Megaphone, UtensilsCrossed } from 'lucide-react';
 
 const navigation = [
     { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
     { name: 'Locations', href: '/admin/locations', icon: MapPin },
     { name: 'Products', href: '/admin/products', icon: Package },
+    { name: 'Catering', href: '/admin/catering', icon: UtensilsCrossed },
     { name: 'Announcements', href: '/admin/announcements', icon: Megaphone },
     { name: 'Reports', href: '/admin/reportes', icon: FileText },
     { name: 'Users', href: '/admin/users', icon: Users },
