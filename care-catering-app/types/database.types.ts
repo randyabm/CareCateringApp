@@ -13,7 +13,7 @@ export interface Database {
                 Row: {
                     id: string
                     full_name: string | null
-                    role: 'nurse' | 'kitchen_staff' | 'store_man' | 'admin'
+                    role: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin'
                     assigned_location_id: number | null
                     created_at: string
                     updated_at: string
@@ -21,7 +21,7 @@ export interface Database {
                 Insert: {
                     id: string
                     full_name?: string | null
-                    role?: 'nurse' | 'kitchen_staff' | 'store_man' | 'admin'
+                    role?: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin'
                     assigned_location_id?: number | null
                     created_at?: string
                     updated_at?: string
@@ -29,7 +29,7 @@ export interface Database {
                 Update: {
                     id?: string
                     full_name?: string | null
-                    role?: 'nurse' | 'kitchen_staff' | 'store_man' | 'admin'
+                    role?: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin'
                     assigned_location_id?: number | null
                     created_at?: string
                     updated_at?: string
@@ -39,16 +39,19 @@ export interface Database {
                 Row: {
                     id: number
                     name: string
+                    parent_group_id: number | null
                     created_at: string
                 }
                 Insert: {
                     id?: number
                     name: string
+                    parent_group_id?: number | null
                     created_at?: string
                 }
                 Update: {
                     id?: number
                     name?: string
+                    parent_group_id?: number | null
                     created_at?: string
                 }
             }
@@ -107,6 +110,8 @@ export interface Database {
                     category: string | null
                     image_url: string | null
                     unit_size: string | null
+                    storage_stock: number
+                    storage_reorder_point: number
                     created_at: string
                     category_id: number | null
                 }
@@ -118,6 +123,8 @@ export interface Database {
                     category?: string | null
                     image_url?: string | null
                     unit_size?: string | null
+                    storage_stock?: number
+                    storage_reorder_point?: number
                     created_at?: string
                     category_id?: number | null
                 }
@@ -129,6 +136,31 @@ export interface Database {
                     category?: string | null
                     image_url?: string | null
                     unit_size?: string | null
+                    storage_stock?: number
+                    storage_reorder_point?: number
+                    created_at?: string
+                }
+            }
+            order_items: {
+                Row: {
+                    id: number
+                    order_id: number | null
+                    product_id: number | null
+                    quantity: number
+                    created_at: string
+                }
+                Insert: {
+                    id?: number
+                    order_id?: number | null
+                    product_id?: number | null
+                    quantity: number
+                    created_at?: string
+                }
+                Update: {
+                    id?: number
+                    order_id?: number | null
+                    product_id?: number | null
+                    quantity?: number
                     created_at?: string
                 }
             }
@@ -137,8 +169,11 @@ export interface Database {
                     id: number
                     user_id: string | null
                     location_id: number | null
-                    type: 'grocery' | 'catering' | 'proactive_restock'
+                    type: 'grocery' | 'catering' | 'proactive_restock' | 'future_order'
                     status: 'pending' | 'approved' | 'processing' | 'delivered' | 'cancelled'
+                    requested_by: string | null
+                    assigned_to_user_id: string | null
+                    assignment_type: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin' | null
                     created_at: string
                     updated_at: string
                 }
@@ -146,8 +181,11 @@ export interface Database {
                     id?: number
                     user_id?: string | null
                     location_id?: number | null
-                    type: 'grocery' | 'catering' | 'proactive_restock'
+                    type: 'grocery' | 'catering' | 'proactive_restock' | 'future_order'
                     status?: 'pending' | 'approved' | 'processing' | 'delivered' | 'cancelled'
+                    requested_by?: string | null
+                    assigned_to_user_id?: string | null
+                    assignment_type?: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin' | null
                     created_at?: string
                     updated_at?: string
                 }
@@ -155,8 +193,11 @@ export interface Database {
                     id?: number
                     user_id?: string | null
                     location_id?: number | null
-                    type?: 'grocery' | 'catering' | 'proactive_restock'
+                    type?: 'grocery' | 'catering' | 'proactive_restock' | 'future_order'
                     status?: 'pending' | 'approved' | 'processing' | 'delivered' | 'cancelled'
+                    requested_by?: string | null
+                    assigned_to_user_id?: string | null
+                    assignment_type?: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin' | null
                     created_at?: string
                     updated_at?: string
                 }
@@ -167,6 +208,8 @@ export interface Database {
                     location_id: number
                     product_id: number
                     par_level: number
+                    current_stock: number
+                    reorder_point: number
                     updated_at: string
                 }
                 Insert: {
@@ -174,6 +217,8 @@ export interface Database {
                     location_id: number
                     product_id: number
                     par_level?: number
+                    current_stock?: number
+                    reorder_point?: number
                     updated_at?: string
                 }
                 Update: {
@@ -181,7 +226,96 @@ export interface Database {
                     location_id?: number
                     product_id?: number
                     par_level?: number
+                    current_stock?: number
+                    reorder_point?: number
                     updated_at?: string
+                }
+            }
+            order_dietary_flags: {
+                Row: {
+                    order_id: number
+                    diet_code_id: number
+                }
+                Insert: {
+                    order_id: number
+                    diet_code_id: number
+                }
+                Update: {
+                    order_id?: number
+                    diet_code_id?: number
+                }
+            }
+            diet_codes: {
+                Row: {
+                    id: number
+                    code: string
+                    name: string
+                    category: 'primary_diet' | 'allergy' | 'dislike' | 'intolerance' | 'meal_service'
+                    description: string | null
+                    is_active: boolean
+                    created_at: string
+                    deleted_at: string | null
+                }
+                Insert: {
+                    id?: number
+                    code: string
+                    name: string
+                    category: 'primary_diet' | 'allergy' | 'dislike' | 'intolerance' | 'meal_service'
+                    description?: string | null
+                    is_active?: boolean
+                    created_at?: string
+                    deleted_at?: string | null
+                }
+                Update: {
+                    id?: number
+                    code?: string
+                    name?: string
+                    category?: 'primary_diet' | 'allergy' | 'dislike' | 'intolerance' | 'meal_service'
+                    description?: string | null
+                    is_active?: boolean
+                    created_at?: string
+                    deleted_at?: string | null
+                }
+            }
+            catering_details: {
+                Row: {
+                    order_id: number
+                    primary_diet_id: number | null
+                    meal_service_required_id: number | null
+                    bed_number: string
+                    patient_name: string | null
+                    patient_ur_number: string | null
+                    allergies_free_text: string | null
+                    intolerances_free_text: string | null
+                    dislikes_free_text: string | null
+                    other_notes: string | null
+                    created_at: string
+                }
+                Insert: {
+                    order_id: number
+                    primary_diet_id?: number | null
+                    meal_service_required_id?: number | null
+                    bed_number: string
+                    patient_name?: string | null
+                    patient_ur_number?: string | null
+                    allergies_free_text?: string | null
+                    intolerances_free_text?: string | null
+                    dislikes_free_text?: string | null
+                    other_notes?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    order_id?: number
+                    primary_diet_id?: number | null
+                    meal_service_required_id?: number | null
+                    bed_number?: string
+                    patient_name?: string | null
+                    patient_ur_number?: string | null
+                    allergies_free_text?: string | null
+                    intolerances_free_text?: string | null
+                    dislikes_free_text?: string | null
+                    other_notes?: string | null
+                    created_at?: string
                 }
             }
             templates: {
@@ -224,18 +358,240 @@ export interface Database {
                     default_par_level?: number
                 }
             }
+            announcements: {
+                Row: {
+                    id: number
+                    title: string
+                    message: string
+                    start_date: string
+                    end_date: string
+                    location_id: number | null
+                    created_by: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: number
+                    title: string
+                    message: string
+                    start_date: string
+                    end_date: string
+                    location_id?: number | null
+                    created_by?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: number
+                    title?: string
+                    message?: string
+                    start_date?: string
+                    end_date?: string
+                    location_id?: number | null
+                    created_by?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+            }
+            notes: {
+                Row: {
+                    id: number
+                    location_id: number | null
+                    message: string
+                    color: string | null
+                    pinned: boolean
+                    resolved: boolean
+                    expires_at: string | null
+                    created_by: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: number
+                    location_id?: number | null
+                    message: string
+                    color?: string | null
+                    pinned?: boolean
+                    resolved?: boolean
+                    expires_at?: string | null
+                    created_by?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: number
+                    location_id?: number | null
+                    message?: string
+                    color?: string | null
+                    pinned?: boolean
+                    resolved?: boolean
+                    expires_at?: string | null
+                    created_by?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+            }
+            rounds: {
+                Row: {
+                    id: number
+                    user_id: string | null
+                    status: string
+                    started_at: string
+                    finished_at: string | null
+                    notes: string | null
+                }
+                Insert: {
+                    id?: number
+                    user_id?: string | null
+                    status?: string
+                    started_at?: string
+                    finished_at?: string | null
+                    notes?: string | null
+                }
+                Update: {
+                    id?: number
+                    user_id?: string | null
+                    status?: string
+                    started_at?: string
+                    finished_at?: string | null
+                    notes?: string | null
+                }
+            }
+            round_visits: {
+                Row: {
+                    id: number
+                    round_id: number | null
+                    location_id: number | null
+                    status: string
+                    visited_at: string | null
+                    skipped_reason: string | null
+                }
+                Insert: {
+                    id?: number
+                    round_id?: number | null
+                    location_id?: number | null
+                    status?: string
+                    visited_at?: string | null
+                    skipped_reason?: string | null
+                }
+                Update: {
+                    id?: number
+                    round_id?: number | null
+                    location_id?: number | null
+                    status?: string
+                    visited_at?: string | null
+                    skipped_reason?: string | null
+                }
+            }
+            round_visit_items: {
+                Row: {
+                    id: number
+                    round_visit_id: number | null
+                    location_id: number | null
+                    product_id: number | null
+                    before_stock: number | null
+                    after_stock: number | null
+                    quantity_delta: number | null
+                    created_future_order: boolean
+                    created_order_id: number | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: number
+                    round_visit_id?: number | null
+                    location_id?: number | null
+                    product_id?: number | null
+                    before_stock?: number | null
+                    after_stock?: number | null
+                    quantity_delta?: number | null
+                    created_future_order?: boolean
+                    created_order_id?: number | null
+                    created_at?: string
+                }
+                Update: {
+                    id?: number
+                    round_visit_id?: number | null
+                    location_id?: number | null
+                    product_id?: number | null
+                    before_stock?: number | null
+                    after_stock?: number | null
+                    quantity_delta?: number | null
+                    created_future_order?: boolean
+                    created_order_id?: number | null
+                    created_at?: string
+                }
+            }
         }
         Views: {
-            [_ in never]: never
+            report_stock_by_location: {
+                Row: {
+                    location_id: number
+                    location_name: string | null
+                    group_id: number | null
+                    group_name: string | null
+                    product_id: number
+                    product_name: string | null
+                    unit_size: string | null
+                    category_id: number | null
+                    category_name: string | null
+                    current_stock: number
+                    par_level: number
+                    reorder_point: number
+                    updated_at: string
+                    storage_stock: number
+                    storage_reorder_point: number
+                }
+            }
+            report_stock_movements: {
+                Row: {
+                    movement_id: number
+                    order_id: number
+                    movement_type: Database['public']['Enums']['order_type']
+                    order_status: Database['public']['Enums']['order_status']
+                    location_id: number | null
+                    location_name: string | null
+                    product_id: number | null
+                    product_name: string | null
+                    unit_size: string | null
+                    category_id: number | null
+                    category_name: string | null
+                    quantity: number
+                    user_id: string | null
+                    user_name: string | null
+                    created_at: string
+                    order_created_at: string
+                }
+            }
+            report_orders_summary: {
+                Row: {
+                    order_id: number
+                    created_at: string
+                    updated_at: string
+                    location_id: number | null
+                    location_name: string | null
+                    user_id: string | null
+                    user_name: string | null
+                    requested_by: string | null
+                    type: Database['public']['Enums']['order_type']
+                    status: Database['public']['Enums']['order_status']
+                    assigned_to_user_id: string | null
+                    assignment_type: Database['public']['Enums']['user_role'] | null
+                    assigned_user_name: string | null
+                    bed_number: string | null
+                    total_quantity: number
+                    items_count: number
+                    category_names: string[] | null
+                }
+            }
         }
         Functions: {
             [_ in never]: never
         }
         Enums: {
-            user_role: 'nurse' | 'kitchen_staff' | 'store_man' | 'admin'
-            order_type: 'grocery' | 'catering' | 'proactive_restock'
+            user_role: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin'
+            order_type: 'grocery' | 'catering' | 'proactive_restock' | 'future_order'
             order_status: 'pending' | 'approved' | 'processing' | 'delivered' | 'cancelled'
-            diet_category: 'primary_diet' | 'allergy' | 'dislike'
+            diet_category: 'primary_diet' | 'allergy' | 'dislike' | 'intolerance' | 'meal_service'
         }
     }
 }
