@@ -13,7 +13,7 @@ export interface Database {
                 Row: {
                     id: string
                     full_name: string | null
-                    role: 'nurse' | 'kitchen_staff' | 'store_man' | 'admin'
+                    role: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin'
                     assigned_location_id: number | null
                     created_at: string
                     updated_at: string
@@ -21,7 +21,7 @@ export interface Database {
                 Insert: {
                     id: string
                     full_name?: string | null
-                    role?: 'nurse' | 'kitchen_staff' | 'store_man' | 'admin'
+                    role?: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin'
                     assigned_location_id?: number | null
                     created_at?: string
                     updated_at?: string
@@ -29,7 +29,7 @@ export interface Database {
                 Update: {
                     id?: string
                     full_name?: string | null
-                    role?: 'nurse' | 'kitchen_staff' | 'store_man' | 'admin'
+                    role?: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin'
                     assigned_location_id?: number | null
                     created_at?: string
                     updated_at?: string
@@ -169,8 +169,11 @@ export interface Database {
                     id: number
                     user_id: string | null
                     location_id: number | null
-                    type: 'grocery' | 'catering' | 'proactive_restock'
+                    type: 'grocery' | 'catering' | 'proactive_restock' | 'future_order'
                     status: 'pending' | 'approved' | 'processing' | 'delivered' | 'cancelled'
+                    requested_by: string | null
+                    assigned_to_user_id: string | null
+                    assignment_type: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin' | null
                     created_at: string
                     updated_at: string
                 }
@@ -178,8 +181,11 @@ export interface Database {
                     id?: number
                     user_id?: string | null
                     location_id?: number | null
-                    type: 'grocery' | 'catering' | 'proactive_restock'
+                    type: 'grocery' | 'catering' | 'proactive_restock' | 'future_order'
                     status?: 'pending' | 'approved' | 'processing' | 'delivered' | 'cancelled'
+                    requested_by?: string | null
+                    assigned_to_user_id?: string | null
+                    assignment_type?: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin' | null
                     created_at?: string
                     updated_at?: string
                 }
@@ -187,8 +193,11 @@ export interface Database {
                     id?: number
                     user_id?: string | null
                     location_id?: number | null
-                    type?: 'grocery' | 'catering' | 'proactive_restock'
+                    type?: 'grocery' | 'catering' | 'proactive_restock' | 'future_order'
                     status?: 'pending' | 'approved' | 'processing' | 'delivered' | 'cancelled'
+                    requested_by?: string | null
+                    assigned_to_user_id?: string | null
+                    assignment_type?: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin' | null
                     created_at?: string
                     updated_at?: string
                 }
@@ -236,28 +245,75 @@ export interface Database {
                     diet_code_id?: number
                 }
             }
+            diet_codes: {
+                Row: {
+                    id: number
+                    code: string
+                    name: string
+                    category: 'primary_diet' | 'allergy' | 'dislike' | 'intolerance' | 'meal_service'
+                    description: string | null
+                    is_active: boolean
+                    created_at: string
+                    deleted_at: string | null
+                }
+                Insert: {
+                    id?: number
+                    code: string
+                    name: string
+                    category: 'primary_diet' | 'allergy' | 'dislike' | 'intolerance' | 'meal_service'
+                    description?: string | null
+                    is_active?: boolean
+                    created_at?: string
+                    deleted_at?: string | null
+                }
+                Update: {
+                    id?: number
+                    code?: string
+                    name?: string
+                    category?: 'primary_diet' | 'allergy' | 'dislike' | 'intolerance' | 'meal_service'
+                    description?: string | null
+                    is_active?: boolean
+                    created_at?: string
+                    deleted_at?: string | null
+                }
+            }
             catering_details: {
                 Row: {
                     order_id: number
                     primary_diet_id: number | null
+                    meal_service_required_id: number | null
                     bed_number: string
                     patient_name: string | null
+                    patient_ur_number: string | null
+                    allergies_free_text: string | null
+                    intolerances_free_text: string | null
+                    dislikes_free_text: string | null
                     other_notes: string | null
                     created_at: string
                 }
                 Insert: {
                     order_id: number
                     primary_diet_id?: number | null
+                    meal_service_required_id?: number | null
                     bed_number: string
                     patient_name?: string | null
+                    patient_ur_number?: string | null
+                    allergies_free_text?: string | null
+                    intolerances_free_text?: string | null
+                    dislikes_free_text?: string | null
                     other_notes?: string | null
                     created_at?: string
                 }
                 Update: {
                     order_id?: number
                     primary_diet_id?: number | null
+                    meal_service_required_id?: number | null
                     bed_number?: string
                     patient_name?: string | null
+                    patient_ur_number?: string | null
+                    allergies_free_text?: string | null
+                    intolerances_free_text?: string | null
+                    dislikes_free_text?: string | null
                     other_notes?: string | null
                     created_at?: string
                 }
@@ -515,8 +571,13 @@ export interface Database {
                     location_name: string | null
                     user_id: string | null
                     user_name: string | null
+                    requested_by: string | null
                     type: Database['public']['Enums']['order_type']
                     status: Database['public']['Enums']['order_status']
+                    assigned_to_user_id: string | null
+                    assignment_type: Database['public']['Enums']['user_role'] | null
+                    assigned_user_name: string | null
+                    bed_number: string | null
                     total_quantity: number
                     items_count: number
                     category_names: string[] | null
@@ -527,10 +588,10 @@ export interface Database {
             [_ in never]: never
         }
         Enums: {
-            user_role: 'nurse' | 'kitchen_staff' | 'store_man' | 'admin'
-            order_type: 'grocery' | 'catering' | 'proactive_restock'
+            user_role: 'nurse' | 'kitchen_staff' | 'store_man' | 'kitchen_runner' | 'admin'
+            order_type: 'grocery' | 'catering' | 'proactive_restock' | 'future_order'
             order_status: 'pending' | 'approved' | 'processing' | 'delivered' | 'cancelled'
-            diet_category: 'primary_diet' | 'allergy' | 'dislike'
+            diet_category: 'primary_diet' | 'allergy' | 'dislike' | 'intolerance' | 'meal_service'
         }
     }
 }

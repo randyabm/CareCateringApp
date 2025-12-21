@@ -335,6 +335,8 @@ export default function StoreRoundingPage() {
                         location_id: activeLocationId,
                         type: 'proactive_restock',
                         status: 'delivered',
+                        assignment_type: 'store_man',
+                        requested_by: 'N/A',
                     })
                     .select()
                     .single();
@@ -374,6 +376,8 @@ export default function StoreRoundingPage() {
                         location_id: activeLocationId,
                         type: 'future_order',
                         status: 'pending',
+                        assignment_type: 'store_man',
+                        requested_by: 'N/A',
                     })
                     .select()
                     .single();

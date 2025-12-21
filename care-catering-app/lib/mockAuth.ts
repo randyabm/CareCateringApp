@@ -14,7 +14,15 @@ export function getMockUser() {
         return null;
     }
 
-    const role = (process.env.NEXT_PUBLIC_TEST_USER_ROLE || 'nurse') as UserRole;
+    // Check localStorage for role override (for in-app role switching)
+    let role: UserRole;
+    if (typeof window !== 'undefined') {
+        const storedRole = localStorage.getItem('test_mode_role');
+        role = (storedRole || process.env.NEXT_PUBLIC_TEST_USER_ROLE || 'nurse') as UserRole;
+    } else {
+        role = (process.env.NEXT_PUBLIC_TEST_USER_ROLE || 'nurse') as UserRole;
+    }
+
     const locationId = process.env.NEXT_PUBLIC_TEST_USER_LOCATION_ID 
         ? parseInt(process.env.NEXT_PUBLIC_TEST_USER_LOCATION_ID, 10) 
         : null;
@@ -56,11 +64,36 @@ export function getTestModeInfo() {
         return null;
     }
 
+    // Check localStorage for role override
+    let role: string;
+    if (typeof window !== 'undefined') {
+        const storedRole = localStorage.getItem('test_mode_role');
+        role = storedRole || process.env.NEXT_PUBLIC_TEST_USER_ROLE || 'nurse';
+    } else {
+        role = process.env.NEXT_PUBLIC_TEST_USER_ROLE || 'nurse';
+    }
+
     return {
         enabled: true,
-        role: process.env.NEXT_PUBLIC_TEST_USER_ROLE || 'nurse',
+        role,
         locationId: process.env.NEXT_PUBLIC_TEST_USER_LOCATION_ID || 'not set',
         userName: process.env.NEXT_PUBLIC_TEST_USER_NAME || 'Test User',
     };
+}
+
+/**
+ * Set test mode role (for in-app role switching)
+ */
+export function setTestModeRole(role: UserRole) {
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('test_mode_role', role);
+    }
+}
+
+/**
+ * Get available roles for test mode
+ */
+export function getAvailableRoles(): UserRole[] {
+    return ['nurse', 'kitchen_staff', 'store_man', 'kitchen_runner', 'admin'];
 }
 

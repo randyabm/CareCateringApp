@@ -211,6 +211,7 @@ export function RestockOrderGenerator({
                         location_id: locRestock.locationId,
                         type: 'proactive_restock',
                         status: 'pending',
+                        assignment_type: 'store_man',
                     })
                     .select()
                     .single();

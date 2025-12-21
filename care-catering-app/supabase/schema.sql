@@ -1,5 +1,5 @@
 -- Create Enums
-CREATE TYPE user_role AS ENUM ('nurse', 'kitchen_staff', 'store_man', 'admin');
+CREATE TYPE user_role AS ENUM ('nurse', 'kitchen_staff', 'store_man', 'kitchen_runner', 'admin');
 CREATE TYPE order_type AS ENUM ('grocery', 'catering', 'proactive_restock', 'future_order');
 CREATE TYPE order_status AS ENUM ('pending', 'approved', 'processing', 'delivered', 'cancelled');
 CREATE TYPE diet_category AS ENUM ('primary_diet', 'allergy', 'dislike');
@@ -110,6 +110,9 @@ CREATE TABLE orders (
   location_id BIGINT REFERENCES locations(id),
   type order_type NOT NULL,
   status order_status DEFAULT 'pending',
+  requested_by TEXT,
+  assigned_to_user_id UUID REFERENCES profiles(id),
+  assignment_type user_role,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

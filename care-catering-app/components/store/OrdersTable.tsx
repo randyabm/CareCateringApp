@@ -207,8 +207,13 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange, 
     const locationOptions = Array.from(
         new Set(orders.map(order => order.location_name).filter((name): name is string => Boolean(name)))
     );
+    // Always include all possible order types for store page, even if no orders exist for them
+    const allOrderTypes: OrderRow['type'][] = ['grocery', 'proactive_restock', 'future_order'];
     const typeOptions = Array.from(
-        new Set(orders.map(order => order.type).filter(type => Boolean(type)))
+        new Set([
+            ...allOrderTypes,
+            ...orders.map(order => order.type).filter(type => Boolean(type))
+        ])
     );
     const userOptions = Array.from(
         new Set(orders.map(order => order.user_name).filter((name): name is string => Boolean(name)))
@@ -248,7 +253,7 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange, 
                                         <option value="all">All</option>
                                         {typeOptions.map(type => (
                                             <option key={type} value={type}>
-                                                {type.replace('_', ' ')}
+                                                {type === 'grocery' ? 'Restock' : type.replace('_', ' ')}
                                             </option>
                                         ))}
                                     </select>
@@ -330,7 +335,7 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange, 
                                                     <ChevronRight className="h-4 w-4" />
                                                 )}
                                             </button>
-                                            {onSelectionChange && effectiveStatus === 'pending' && (
+                                            {onSelectionChange && (effectiveStatus === 'pending' || effectiveStatus === 'approved') && (
                                                 <input
                                                     type="checkbox"
                                                     checked={isSelected}
@@ -351,7 +356,7 @@ export function OrdersTable({ orders, selectedOrderIds = [], onSelectionChange, 
                                         {new Date(order.created_at).toLocaleString()}
                                     </td>
                                     <td className="px-4 py-2 text-sm text-slate-700 capitalize">
-                                        {order.type?.replace('_', ' ') ?? '—'}
+                                        {order.type === 'grocery' ? 'Restock' : order.type?.replace('_', ' ') ?? '—'}
                                     </td>
                                     <td className="px-4 py-2 text-sm text-slate-700">
                                         {order.location_name ?? '—'}

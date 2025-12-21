@@ -35,6 +35,7 @@ export function CustomOrderForm({
 }: CustomOrderFormProps) {
     const supabase = createClient();
     const [locationId, setLocationId] = useState<number | ''>(initialLocationId ?? '');
+    const [selectedOrderType, setSelectedOrderType] = useState<OrderType>(orderType ?? 'proactive_restock');
     const [lines, setLines] = useState<Line[]>(
         initialLines && initialLines.length > 0
             ? initialLines.map((l, index) => ({
@@ -91,8 +92,9 @@ export function CustomOrderForm({
                 .from('orders')
                 .insert({
                     location_id: locationId,
-                    type: orderType ?? 'proactive_restock',
+                    type: selectedOrderType,
                     status: 'pending',
+                    assignment_type: 'store_man',
                 })
                 .select()
                 .single();
@@ -158,6 +160,18 @@ export function CustomOrderForm({
                                     {loc.name}
                                 </option>
                             ))}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">Order Type</label>
+                        <select
+                            value={selectedOrderType}
+                            onChange={e => setSelectedOrderType(e.target.value as OrderType)}
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800"
+                        >
+                            <option value="grocery">Restock</option>
+                            <option value="proactive_restock">Proactive Restock</option>
+                            <option value="future_order">Future Order</option>
                         </select>
                     </div>
                 </div>

@@ -92,7 +92,7 @@ export default function StorePage() {
                 supabase
                     .from('report_orders_summary')
                     .select('*')
-                    .in('type', ['proactive_restock', 'future_order'])
+                    .in('type', ['grocery', 'proactive_restock', 'future_order'])
                     .order('created_at', { ascending: false }),
                 supabase.from('locations').select('*').order('name'),
                 supabase.from('location_groups').select('*').order('name'),
