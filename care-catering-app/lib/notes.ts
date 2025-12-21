@@ -18,7 +18,7 @@ type CreateParams = {
     expiresAt?: string | null;
 };
 
-const baseOrder = (query: ReturnType<ReturnType<typeof createClient>['from']>) =>
+const baseOrder = (query: any) =>
     query
         .order('pinned', { ascending: false })
         .order('resolved', { ascending: true })

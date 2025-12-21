@@ -8,13 +8,14 @@ import { Megaphone, Plus, Pencil, Trash2, Loader2, CalendarRange } from 'lucide-
 
 type Announcement = Database['public']['Tables']['announcements']['Row'];
 type Location = Database['public']['Tables']['locations']['Row'];
+type LocationBasic = Pick<Location, 'id' | 'name'>;
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
 export default function AnnouncementsPage() {
     const supabase = useMemo(() => createClient(), []);
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-    const [locations, setLocations] = useState<Location[]>([]);
+    const [locations, setLocations] = useState<LocationBasic[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
